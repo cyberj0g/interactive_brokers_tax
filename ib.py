@@ -34,17 +34,18 @@ currencies = {
 
 StartDate = "10.12.2018"
 
+
 # In[3]:
 
 
 def get_crs_tables():
-    for currency,data in currencies.items():
+    for currency, data in currencies.items():
         if not len(data):  # rub
             continue
         print(f"Получение таблицы курса {currency}...")
         Format1 = "%d.%m.%Y"
         Format2 = "%m.%d.%Y"
-        From = datetime.strptime(StartDate,Format1)
+        From = datetime.strptime(StartDate, Format1)
         To = datetime.today()
         url = f"https://cbr.ru/Queries/UniDbQuery/DownloadExcel/98956?Posted=True&mode=1&VAL_NM_RQ=R{data[0]}&From="
         url += f"{From.strftime(Format1)}&To={To.strftime(Format1)}"
@@ -56,7 +57,9 @@ def get_crs_tables():
         with open(f"{currency}.xlsx", "wb") as file:
             file.write(response.content)
 
+
 get_crs_tables()
+
 
 # In[]:
 
@@ -67,8 +70,9 @@ def preprocess_reports():
         yearToProceed = int(fname.replace(reportDirName + os.path.sep, '').split('.')[0])
         print(f"--{fname}")
         years[yearToProceed] = fname
-    
+
     return sorted(years.items(), key=lambda kv: kv[1])
+
 
 yearReports = preprocess_reports()
 
@@ -77,6 +81,7 @@ if len(yearReports) == 0:
     print("Проверьте, что в ней есть отчеты в csv формате, названные по шаблону YEAR.csv")
     quit()
 
+
 # In[4]:
 
 
@@ -84,7 +89,7 @@ def split_report(fileReport):
     fname = f"{fileReport[1]}"
     year = fileReport[0]
     print(f"Разделение отчета {fname} на разделы...")
-    
+
     with open(fname, encoding="utf8") as file:
         out_file = None
         line = file.readline()
@@ -92,7 +97,7 @@ def split_report(fileReport):
             section, header, column, *_ = line.split(',')
             section = section
 
-            if section == "Trades" and column =="Account":
+            if section == "Trades" and column == "Account":
                 line = file.readline()
                 continue
 
@@ -114,12 +119,13 @@ def split_report(fileReport):
     if out_file:
         out_file.close()
 
+
 if not os.path.exists(dirname):
     print(f"Создаем директорию {dirname}")
     os.mkdir(dirname)
 else:
     print(f"Директория {dirname} уже существует")
-    
+
 files = glob(os.path.join(dirname, "*"))
 for f in files:
     print(f"Удаляем файл отчета {f}")
@@ -127,7 +133,7 @@ for f in files:
 
 for report in yearReports:
     split_report(report)
-    
+
 
 # In[5]:
 
@@ -137,9 +143,6 @@ def get_ticker_price(ticker: str):
 
 
 # In[ ]:
-
-
-
 
 
 # In[6]:
@@ -171,7 +174,7 @@ def load_data(year):
     if "Trades" in data:
         trades = data["Trades"]
         trades.columns = [col.lower() for col in trades]
-        trades = trades.rename(columns={"comm/fee": "fee", "date/time": "date", "t. price": "price", "comm in usd":"fee"})
+        trades = trades.rename(columns={"comm/fee": "fee", "date/time": "date", "t. price": "price", "comm in usd": "fee"})
         trades = trades[trades.header == "Data"]
         trades = trades[trades.fee < 0]
         trades.date = pd.to_datetime(trades.date)
@@ -187,7 +190,7 @@ def load_data(year):
     else:
         comissions = None
     if "Interest" in data:
-        interests =  data["Interest"]
+        interests = data["Interest"]
         interests.columns = [col.lower() for col in interests]
         interests = interests[interests.header == "Data"]
         interests = interests[interests.currency != "Total"]
@@ -224,6 +227,7 @@ def load_data(year):
         div_accurals = None
     return cashflow, trades, comissions, div, div_tax, div_accurals, interests
 
+
 cashflow = {}
 trades = {}
 comissions = {}
@@ -234,6 +238,7 @@ interests = {}
 
 for report in yearReports:
     cashflow[report[0]], trades[report[0]], comissions[report[0]], div[report[0]], div_tax[report[0]], div_accurals[report[0]], interests[report[0]] = load_data(report[0])
+
 
 # In[8]:
 
@@ -268,6 +273,7 @@ def cashflow_calc(year):
     print(f"Eur: {cashflow_eur_sum}")
     return res, cashflow_rub_sum, cashflow_usd_sum, cashflow_eur_sum
 
+
 cashflow_res = {}
 cashflow_rub_sum = {}
 cashflow_usd_sum = {}
@@ -298,12 +304,13 @@ def div_calc(year):
         print("Не найдена таблица удержанного налога с дивидендов. Налог на дивиденды будет 13%")
     res["tax_paid"] = -div_tax[year]["amount"].values.round(2) if div_tax[year] is not None else 0
     res["cur_price"] = [get_currency(row.date, row.currency) for _, row in div[year].iterrows()]
-    res["amount_rub"] = (res.amount*res.cur_price).round(2)
-    res["tax_paid_rub"] = (res.tax_paid*res.cur_price).round(2)
-    res["tax_full_rub"] = (res.amount_rub*13/100).round(2)
+    res["amount_rub"] = (res.amount * res.cur_price).round(2)
+    res["tax_paid_rub"] = (res.tax_paid * res.cur_price).round(2)
+    res["tax_full_rub"] = (res.amount_rub * 13 / 100).round(2)
     res["tax_rest_rub"] = (res.tax_full_rub - res.tax_paid_rub).round(2)
 
     return res
+
 
 div_res = {}
 div_sum = {}
@@ -328,6 +335,7 @@ if div is not None:
 else:
     print("Нет данных по начисленным дивидендам")
 
+
 # In[11]:
 
 
@@ -343,11 +351,12 @@ def div_accurals_calc(year):
     res["currency"] = div_accurals[year]["currency"].values
     res["tax_paid"] = div_accurals[year]["tax"].round(2)
     res["cur_price"] = [get_currency(row.date, row.currency) for _, row in div_accurals[year].iterrows()]
-    res["amount_rub"] = (res.amount*res.cur_price).round(2)
-    res["tax_paid_rub"] = (res.tax_paid*res.cur_price).round(2)
-    res["tax_full_rub"] = (res.amount_rub*13/100).round(2)
+    res["amount_rub"] = (res.amount * res.cur_price).round(2)
+    res["tax_paid_rub"] = (res.tax_paid * res.cur_price).round(2)
+    res["tax_full_rub"] = (res.amount_rub * 13 / 100).round(2)
     res["tax_rest_rub"] = (res.tax_full_rub - res.tax_paid_rub).round(2)
     return res
+
 
 div_accurals_res = {}
 div_accurals_sum = {}
@@ -372,7 +381,6 @@ if div_accurals is not None:
 else:
     print("Нет данных по изменениям в начисленнии дивидендов")
 
-
 # In[12]:
 
 div_final_tax_rest_sum = {}
@@ -392,6 +400,7 @@ for report in yearReports:
         div_tax_paid_final_sum[report[0]] = (div_tax_paid_rub_sum[report[0]] + div_accurals_tax_paid_rub_sum[report[0]]).round(2)
         div_tax_need_pay_final_sum[report[0]] = (div_tax_rest_sum[report[0]] + div_accurals_tax_rest_sum[report[0]]).round(2)
 
+
 # In[13]:
 
 
@@ -402,11 +411,12 @@ def fees_calc(year):
         return None
     fees = pd.DataFrame()
     fees["date"] = comissions[year].date
-    fees["fee"] = comissions[year].amount*-1
+    fees["fee"] = comissions[year].amount * -1
     fees["currency"] = comissions[year]["currency"].values
     fees["cur_price"] = [get_currency(row.date, row.currency) for _, row in comissions[year].iterrows()]
-    fees["fee_rub"] = (fees.fee*fees.cur_price).round(2)
+    fees["fee_rub"] = (fees.fee * fees.cur_price).round(2)
     return fees
+
 
 fees_res = {}
 fees_rub_sum = {}
@@ -423,10 +433,11 @@ if comissions is not None:
 else:
     print("Нет данных по комиссиям")
 
+
 # In[14] :
 def proceed_trades():
     assets = {}
-    Asset = namedtuple("Asset", "date price fee quantity currency")
+    Asset = namedtuple("Asset", "date price fee quantity currency proceeds")
     rows = {}
     for report in yearReports:
         year = report[0]
@@ -437,11 +448,12 @@ def proceed_trades():
             print(f"За {year} нет сделок")
             continue
         for key, val in trades[report[0]].groupby("symbol"):
-            for date, price, fee, quantity, currency in zip(val.date, val.price, val.fee, val.quantity, val.currency):
+            for date, price, fee, quantity, currency, proceeds in zip(val.date, val.price, val.fee, val.quantity, val.currency, val.proceeds):
+                der_type = 'Опцион' if ' ' in key else ''
                 if (quantity > 0):
                     if not key in assets:
                         assets[key] = []
-                    assets[key].append(Asset(date, price, fee, quantity, currency))
+                    assets[key].append(Asset(date, price, fee, quantity, currency, proceeds))
                 else:
                     selFullfill = False
                     quantityToTulfill = -quantity
@@ -451,23 +463,25 @@ def proceed_trades():
                             print(f"Продали {key} больше чем купили. Short не поддерживается.")
                             break
 
-                        buy_date, buy_price, buy_fee, buy_quantity, buy_currency = assets[key].pop(0)
+                        buy_date, buy_price, buy_fee, buy_quantity, buy_currency, buy_proceeds = assets[key].pop(0)
                         intermRows.append(
                             {
                                 'ticker': key,
+                                'der_type': der_type,
                                 'date': buy_date,
                                 'price': buy_price,
                                 'fee': buy_fee,
                                 'cnt': min(buy_quantity, quantityToTulfill),
-                                'currency': buy_currency
+                                'currency': buy_currency,
+                                'proceeds': buy_proceeds
                             }
                         )
                         quantityToTulfill -= buy_quantity
                         selFullfill = quantityToTulfill <= 0
                         if quantityToTulfill < 0:
                             # -quantityToTulfill items still not used from what have already been bought, add it back
-                            assets[key].insert(0, Asset(buy_date, buy_price, buy_fee, -quantityToTulfill, buy_currency))
-                    
+                            assets[key].insert(0, Asset(buy_date, buy_price, buy_fee, -quantityToTulfill, buy_currency, proceeds))
+
                     if selFullfill:
                         for buyRow in intermRows:
                             # Sell operation was done after buying respective amount of stocks, show this in report                    
@@ -476,18 +490,23 @@ def proceed_trades():
                         rows[year].append(
                             {
                                 'ticker': key,
+                                'der_type': der_type,
                                 'date': date,
                                 'price': price,
                                 'fee': fee,
                                 'cnt': quantity,
-                                'currency': currency
+                                'currency': currency,
+                                'proceeds': proceeds
                             }
                         )
     return rows
 
+
 trades_res = {}
-income_rub_sum = {}
-income_rest_sum = {}
+income_rub_sum_cb = {}
+income_rest_sum_cb = {}
+income_rub_sum_pfi = {}
+income_rest_sum_pfi = {}
 
 if trades is not None:
     calculatedTrades = proceed_trades()
@@ -495,21 +514,26 @@ if trades is not None:
     for report in yearReports:
         year = report[0]
         if year in calculatedTrades:
-            internal_trades_res = pd.DataFrame(calculatedTrades[year], columns=['ticker', 'date', 'price', 'fee', 'cnt', 'currency'])
+            internal_trades_res = pd.DataFrame(calculatedTrades[year], columns=['ticker', 'der_type', 'date', 'price', 'fee', 'cnt', 'currency', 'proceeds'])
             if len(internal_trades_res):
-                internal_trades_res = internal_trades_res.groupby(['ticker', 'date', 'price', 'fee', 'currency'], as_index=False)['cnt'].sum()
+                internal_trades_res = internal_trades_res.groupby(['ticker', 'der_type', 'date', 'price', 'fee', 'currency', 'proceeds'], as_index=False)['cnt'].sum()
             internal_trades_res["type"] = ["Покупка" if cnt > 0 else "Продажа" for cnt in internal_trades_res.cnt]
             internal_trades_res["price"] = internal_trades_res.price.round(2)
-            internal_trades_res["fee"] = internal_trades_res.fee.round(2)*-1
-            internal_trades_res["amount"] = (internal_trades_res.price*internal_trades_res.cnt*-1 - internal_trades_res.fee).round(2)
+            internal_trades_res["fee"] = internal_trades_res.fee.round(2) * -1
+            internal_trades_res["amount"] = (internal_trades_res.proceeds - internal_trades_res.fee).round(2)
             internal_trades_res["cur_price"] = [get_currency(row.date, row.currency) for _, row in internal_trades_res.iterrows()]
-            internal_trades_res["amount_rub"] = (internal_trades_res.amount*internal_trades_res.cur_price).round(2)
+            internal_trades_res["amount_rub"] = (internal_trades_res.amount * internal_trades_res.cur_price).round(2)
             internal_trades_res["rest"] = (internal_trades_res.amount * internal_trades_res.cur_price * 0.13).round(2)
             internal_trades_res["cnt"] = internal_trades_res.cnt.abs()
             internal_trades_res = internal_trades_res.sort_values(["ticker", "type", "date"])
             internal_trades_res.loc[internal_trades_res.duplicated(subset="ticker"), "ticker"] = ""
-            income_rub_sum[year] = round(internal_trades_res.amount_rub.sum(), 2)
-            income_rest_sum[year] = round(internal_trades_res.amount_rub.sum() * 0.13, 2)
+
+            income_rub_sum_cb[year] = round(internal_trades_res[internal_trades_res.der_type == ''].amount_rub.sum(), 2)
+            income_rest_sum_cb[year] = round(internal_trades_res[internal_trades_res.der_type == ''].amount_rub.sum() * 0.13, 2)
+
+            income_rub_sum_pfi[year] = round(internal_trades_res[internal_trades_res.der_type != ''].amount_rub.sum(), 2)
+            income_rest_sum_pfi[year] = round(internal_trades_res[internal_trades_res.der_type != ''].amount_rub.sum() * 0.13, 2)
+
             trades_res[year] = internal_trades_res
         else:
             trades_res[year] = None
@@ -526,6 +550,7 @@ interest_res = {}
 interest_rub_sum = {}
 interest_rest_sum = {}
 
+
 def interest_calc(year):
     print(f"Расчет таблицы по программе повышения доходности за {year} год...")
     if interests[year] is None:
@@ -541,6 +566,7 @@ def interest_calc(year):
     interest_calc["rest"] = (interest_calc.amount * interest_calc.cur_price * 0.13).round(2)
     interest_calc = interest_calc.sort_values(['date'])
     return interest_calc
+
 
 if interests is not None:
     for report in yearReports:
@@ -561,6 +587,10 @@ def create_doc(year):
     Fname = f"Пояснительная записка {year}.docx"
     print(f"Формирование отчета за {year} год...")
     doc = DocxTemplate("template.docx")
+    # stocks
+    tbl_trades_cb = trades_res[year][trades_res[year].der_type == ''].to_dict(orient='records') if trades_res[year] is not None else {}
+    # derivatives
+    tbl_trades_pfi = trades_res[year][trades_res[year].der_type != ''].to_dict(orient='records') if trades_res[year] is not None else {}
     context = {
         'start_date': StartDate,
         'year': year,
@@ -579,30 +609,21 @@ def create_doc(year):
         'div_tax_paid_final_sum': div_tax_paid_final_sum[year],
         'div_tax_need_pay_final_sum': div_tax_need_pay_final_sum[year],
         'tbl_cashflow': cashflow_res[year].to_dict(orient='records') if cashflow_res[year] is not None else {},
-        'tbl_trades': trades_res[year].to_dict(orient='records') if trades_res[year] is not None else {},
+        'tbl_trades_cb': tbl_trades_cb,
+        'tbl_trades_pfi': tbl_trades_pfi,
         'tbl_interest': interest_res[year].to_dict(orient='records') if interest_res[year] is not None else {},
         'interest_rub_sum': interest_rub_sum[year],
         'interest_rest_sum': interest_rest_sum[year],
-        'income_rub_sum': income_rub_sum[year],
-        'income_rest_sum': income_rest_sum[year],
+        'income_rub_sum_cb': income_rub_sum_cb[year],
+        'income_rest_sum_cb': income_rest_sum_cb[year],
+        'income_rub_sum_pfi': income_rub_sum_pfi[year],
+        'income_rest_sum_pfi': income_rest_sum_pfi[year],
         'tbl_fees': fees_res[year].to_dict(orient='records') if fees_res[year] is not None else {},
         'fees_rub_sum': fees_rub_sum[year]
     }
     doc.render(context)
     doc.save(Fname)
 
+
 for report in yearReports:
     create_doc(report[0])
-
-
-# In[18]:
-
-
-input("Готово.")
-
-
-# In[ ]:
-
-
-
-
